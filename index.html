@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Show & Go Workout Program - Interactive Dashboard & Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Excel-style analytics dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        excel: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                            accent: '#107c41' // Microsoft Excel signature green
+                        },
+                        sheets: {
+                            accent: '#0f9d58' // Google Sheets green
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Excel grid styling */
+        .excel-table th, .excel-table td {
+            border: 1px solid #334155;
+        }
+        .excel-input {
+            background-color: transparent;
+            width: 100%;
+            height: 100%;
+            padding: 4px 8px;
+            color: #f8fafc;
+            outline: none;
+        }
+        .excel-input:focus {
+            background-color: #1e293b;
+            box-shadow: inset 0 0 0 2px #22c55e;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-100 font-sans flex flex-col antialiased bg-slate-950 custom-scrollbar">
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 ease-in-out bg-excel-accent text-white font-medium px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-400/30">
+        <i class="fa-solid fa-circle-check text-lg"></i>
+        <span id="toast-msg">Action completed!</span>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl transform scale-95 transition-transform duration-300">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5 text-excel-500">
+                    <i class="fa-solid fa-file-excel text-xl"></i>
+                    <h3 class="text-lg font-bold text-white">Export to Excel / Sheets</h3>
+                </div>
+                <button onclick="closeExportModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+                Download pre-formatted CSV files configured with sheet headers and 4-Phase structure for easy import into Excel or Google Sheets.
+            </p>
+            <div class="space-y-3">
+                <button onclick="downloadCSV('all')" class="w-full py-2.5 px-4 bg-excel-accent hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center justify-between transition-all shadow-lg">
+                    <span><i class="fa-solid fa-file-csv mr-2"></i> Export Complete Workbook (.csv)</span>
+                    <i class="fa-solid fa-download"></i>
+                </button>
+                <button onclick="downloadCSV('current')" class="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl text-xs flex items-center justify-between transition-all">
+                    <span><i class="fa-solid fa-table mr-2"></i> Export Selected Phase Only</span>
+                    <i class="fa-solid fa-download"></i>
+                </button>
+                <button onclick="copyCSVToClipboard()" class="w-full py-2.5 px-4 bg-sky-900/60 hover:bg-sky-800/80 text-sky-200 border border-sky-700/60 font-semibold rounded-xl text-xs flex items-center justify-between transition-all">
+                    <span><i class="fa-solid fa-copy mr-2"></i> Copy CSV Raw Text to Clipboard</span>
+                    <i class="fa-solid fa-paste"></i>
+                </button>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-sky-400"></i>
+                <span>Mobile browsers may require selecting "Copy CSV Text" if direct downloads are restricted in embedded webviews.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-excel-accent/20 border border-excel-accent/40 p-2 rounded-xl text-excel-500">
+                    <i class="fa-solid fa-file-spreadsheet text-2xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg font-bold tracking-tight text-white">Show & Go Workout Program</h1>
+                    </div>
+                    <p class="text-xs text-slate-400">Dynamic Excel/Sheets Grid Tracker & Analytics Dashboard</p>
+                </div>
+            </div>
+
+            <!-- Global Controls & Phase Buttons -->
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Phase selector buttons -->
+                <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+                    <span class="text-slate-400 px-2 text-[11px] uppercase tracking-wider hidden sm:inline">Phase:</span>
+                    <div class="flex gap-1" id="phase-selector">
+                        <button onclick="setPhase(1)" id="phase-btn-1" class="px-3 py-1.5 rounded-lg transition-all">P1</button>
+                        <button onclick="setPhase(2)" id="phase-btn-2" class="px-3 py-1.5 rounded-lg transition-all">P2</button>
+                        <button onclick="setPhase(3)" id="phase-btn-3" class="px-3 py-1.5 rounded-lg transition-all">P3</button>
+                        <button onclick="setPhase(4)" id="phase-btn-4" class="px-3 py-1.5 rounded-lg transition-all">P4</button>
+                    </div>
+                </div>
+
+                <button onclick="openExportModal()" class="bg-excel-accent hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow flex items-center gap-2">
+                    <i class="fa-solid fa-file-export"></i>
+                    <span>Export Sheet</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col gap-5">
+
+        <!-- Navigation Tabs (Excel Worksheet Tabs Style) -->
+        <div class="bg-slate-900 p-1.5 rounded-2xl border border-slate-800 flex flex-wrap gap-1 items-center text-xs font-medium">
+            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-4 py-2 rounded-xl flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-chart-pie text-sky-400"></i>
+                Dashboard & Formula Visualizer
+            </button>
+            <button onclick="switchTab('strength')" id="tab-strength" class="tab-btn px-4 py-2 rounded-xl flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-table-cells text-emerald-400"></i>
+                Strength Sheet (Day 1 - Day 4)
+            </button>
+            <button onclick="switchTab('warmup')" id="tab-warmup" class="tab-btn px-4 py-2 rounded-xl flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-person-stretching text-amber-400"></i>
+                Foam Rolling & Mobility Sheet
+            </button>
+            <button onclick="switchTab('cardio')" id="tab-cardio" class="tab-btn px-4 py-2 rounded-xl flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-person-running text-rose-400"></i>
+                Cardio Options Sheet
+            </button>
+            <button onclick="switchTab('log')" id="tab-log" class="tab-btn px-4 py-2 rounded-xl flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-book-bookmark text-purple-400"></i>
+                Saved History Log Sheet
+            </button>
+        </div>
+
+        <!-- DASHBOARD TAB CONTENT -->
+        <div id="content-dashboard" class="tab-content space-y-5">
+            <!-- Key Stats Header Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
+                        <span>Active Phase</span>
+                        <i class="fa-solid fa-layer-group text-emerald-400"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-black text-white" id="dash-phase-label">Phase 1</div>
+                        <div class="text-[11px] text-slate-400 mt-1">4 Weekly Microcycles</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
+                        <span>Total Exercises</span>
+                        <i class="fa-solid fa-dumbbell text-sky-400"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-black text-white" id="dash-total-exercises">31</div>
+                        <div class="text-[11px] text-slate-400 mt-1">Across 4 Training Days</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
+                        <span>Estimated Volume</span>
+                        <i class="fa-solid fa-calculator text-purple-400"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-black text-white" id="dash-total-volume">0 <span class="text-xs text-slate-400 font-normal">lbs</span></div>
+                        <div class="text-[11px] text-slate-400 mt-1">Formula: =SUMPRODUCT(Sets*Reps*Weight)</div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-slate-400 text-xs font-semibold mb-2">
+                        <span>Logged Sessions</span>
+                        <i class="fa-solid fa-square-check text-emerald-400"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-black text-white" id="dash-logged-count">0</div>
+                        <div class="text-[11px] text-slate-400 mt-1">Saved in History Sheet</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spreadsheet Formulas & Visual Chart Section -->
+            <div class="grid lg:grid-cols-3 gap-5">
+                <!-- Analytics Chart -->
+                <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col justify-between">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-chart-line text-emerald-400"></i> Training Volume & Progress Breakdown
+                            </h3>
+                            <p class="text-xs text-slate-400">Calculated across workout days (Day 1 - Day 4)</p>
+                        </div>
+                    </div>
+                    <div class="relative h-64 w-full">
+                        <canvas id="volumeChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Excel Sheet Formulas Reference Box -->
+                <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+                    <div class="border-b border-slate-800 pb-3">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-square-root-variable text-amber-400"></i> Built-in Spreadsheet Formulas
+                        </h3>
+                        <p class="text-xs text-slate-400">Formulas embedded in worksheet cells</p>
+                    </div>
+
+                    <div class="space-y-3 font-mono text-xs">
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <div class="text-emerald-400 font-bold text-[11px] uppercase tracking-wider mb-1">1RM Estimator (Epley)</div>
+                            <div class="text-slate-200">=Weight * (1 + (Reps / 30))</div>
+                            <div class="text-[10px] text-slate-500 mt-1">Calculates estimated 1-Rep Max automatically.</div>
+                        </div>
+
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <div class="text-sky-400 font-bold text-[11px] uppercase tracking-wider mb-1">Total Set Load / Volume</div>
+                            <div class="text-slate-200">=Sets * Reps * Weight</div>
+                            <div class="text-[10px] text-slate-500 mt-1">Calculates tonnage for specific exercise sets.</div>
+                        </div>
+
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                            <div class="text-purple-400 font-bold text-[11px] uppercase tracking-wider mb-1">Daily Total Tonnage</div>
+                            <div class="text-slate-200">=SUM(F2:F20)</div>
+                            <div class="text-[10px] text-slate-500 mt-1">Summation of all volume cells for the active day.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Day Selector Cards -->
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+                <h3 class="text-sm font-bold text-white mb-3">4-Day Workout Split Overview</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div onclick="selectStrengthDay('Monday')" class="cursor-pointer bg-slate-950 hover:bg-slate-800/80 border border-slate-800 p-3.5 rounded-xl transition-all group">
+                        <div class="text-xs font-bold text-sky-400">Day 1 &bull; Mon</div>
+                        <div class="text-sm font-semibold text-white mt-1 group-hover:text-emerald-400 transition-colors">Lower Body / Quad Focus</div>
+                        <div class="text-[11px] text-slate-400 mt-2 flex justify-between">
+                            <span>Front Squat, Speed Deadlift</span>
+                            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-emerald-400"></i>
+                        </div>
+                    </div>
+
+                    <div onclick="selectStrengthDay('Wednesday')" class="cursor-pointer bg-slate-950 hover:bg-slate-800/80 border border-slate-800 p-3.5 rounded-xl transition-all group">
+                        <div class="text-xs font-bold text-sky-400">Day 2 &bull; Wed</div>
+                        <div class="text-sm font-semibold text-white mt-1 group-hover:text-emerald-400 transition-colors">Upper Body / Push & Pull</div>
+                        <div class="text-[11px] text-slate-400 mt-2 flex justify-between">
+                            <span>Alt DB Bench, Pull-ups</span>
+                            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-emerald-400"></i>
+                        </div>
+                    </div>
+
+                    <div onclick="selectStrengthDay('Thursday')" class="cursor-pointer bg-slate-950 hover:bg-slate-800/80 border border-slate-800 p-3.5 rounded-xl transition-all group">
+                        <div class="text-xs font-bold text-sky-400">Day 3 &bull; Thu</div>
+                        <div class="text-sm font-semibold text-white mt-1 group-hover:text-emerald-400 transition-colors">Lower Body / Posterior Focus</div>
+                        <div class="text-[11px] text-slate-400 mt-2 flex justify-between">
+                            <span>Trap Bar DL, Lunges</span>
+                            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-emerald-400"></i>
+                        </div>
+                    </div>
+
+                    <div onclick="selectStrengthDay('Saturday')" class="cursor-pointer bg-slate-950 hover:bg-slate-800/80 border border-slate-800 p-3.5 rounded-xl transition-all group">
+                        <div class="text-xs font-bold text-sky-400">Day 4 &bull; Sat</div>
+                        <div class="text-sm font-semibold text-white mt-1 group-hover:text-emerald-400 transition-colors">Upper Body / Speed & Hypertrophy</div>
+                        <div class="text-[11px] text-slate-400 mt-2 flex justify-between">
+                            <span>Close-Grip Bench, Pull-ups</span>
+                            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-emerald-400"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STRENGTH SHEET TAB CONTENT -->
+        <div id="content-strength" class="tab-content hidden space-y-4">
+            <!-- Sheet Toolbar Header -->
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Day:</span>
+                    <div class="flex flex-wrap gap-1" id="day-buttons">
+                        <button onclick="switchStrengthDay('Monday')" id="day-btn-Monday" class="px-3 py-1.5 text-xs font-bold rounded-xl transition-all">Mon (Day 1)</button>
+                        <button onclick="switchStrengthDay('Wednesday')" id="day-btn-Wednesday" class="px-3 py-1.5 text-xs font-bold rounded-xl transition-all">Wed (Day 2)</button>
+                        <button onclick="switchStrengthDay('Thursday')" id="day-btn-Thursday" class="px-3 py-1.5 text-xs font-bold rounded-xl transition-all">Thu (Day 3)</button>
+                        <button onclick="switchStrengthDay('Saturday')" id="day-btn-Saturday" class="px-3 py-1.5 text-xs font-bold rounded-xl transition-all">Sat (Day 4)</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Week:</span>
+                        <select id="week-select" onchange="renderStrengthGrid()" class="bg-slate-950 text-emerald-400 font-bold border border-slate-800 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-excel-500">
+                            <option value="1">Week 1</option>
+                            <option value="2">Week 2</option>
+                            <option value="3">Week 3</option>
+                            <option value="4">Week 4 (Deload / Max)</option>
+                        </select>
+                    </div>
+
+                    <button onclick="saveCurrentSession()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Save Session Log</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Formula Bar (Excel Replica) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex items-center gap-3 text-xs font-mono">
+                <span class="bg-slate-950 border border-slate-800 px-2.5 py-1 rounded text-slate-400 font-bold">fx</span>
+                <div class="text-slate-400 truncate flex-grow" id="formula-bar">
+                    Select a table cell to view live spreadsheet calculated formula...
+                </div>
+            </div>
+
+            <!-- Interactive Excel Grid Table -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse text-xs excel-table">
+                        <thead>
+                            <tr class="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                                <th class="p-3 text-center w-12 bg-slate-900/50">Code</th>
+                                <th class="p-3 min-w-[200px]">Exercise Name</th>
+                                <th class="p-3 text-center w-16">Sets</th>
+                                <th class="p-3 text-center w-20">Target Reps</th>
+                                <th class="p-3 text-center w-28 bg-slate-900/80 text-emerald-400">Weight (lbs)</th>
+                                <th class="p-3 text-center w-28 bg-slate-900/80 text-sky-400">Logged Reps</th>
+                                <th class="p-3 text-center w-28 bg-slate-950/80 text-purple-400">Total Volume</th>
+                                <th class="p-3 text-center w-28 bg-slate-950/80 text-amber-400">Est. 1RM</th>
+                                <th class="p-3 min-w-[180px]">Prescription / Tempo / Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="strength-grid-body" class="divide-y divide-slate-800/60 font-mono">
+                            <!-- Dynamic Excel Grid Rows Generated via JS -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-slate-950 text-white font-bold text-xs border-t-2 border-slate-700">
+                                <td colspan="6" class="p-3 text-right uppercase tracking-wider text-slate-400 font-sans">
+                                    Total Daily Session Volume:
+                                </td>
+                                <td class="p-3 text-center text-purple-400 font-mono text-sm" id="daily-total-volume">
+                                    0 lbs
+                                </td>
+                                <td colspan="2" class="p-3 text-slate-500 font-sans text-[11px] italic">
+                                    Calculated using =SUM(Volume Column)
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- WARM-UP & MOBILITY SHEET TAB CONTENT -->
+        <div id="content-warmup" class="tab-content hidden space-y-5">
+            <div class="grid md:grid-cols-2 gap-5">
+                <!-- Foam Rolling Routine Sheet -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                            <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                <i class="fa-solid fa-circle-dot text-sky-400"></i> Foam Rolling Protocol
+                            </h3>
+                            <span class="text-xs font-mono bg-sky-950 text-sky-400 border border-sky-800 px-2.5 py-0.5 rounded-full">Phase Pre-Req</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4">Spend 30-60 seconds per muscle group prior to dynamic warm-up drills.</p>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border-collapse excel-table">
+                                <thead>
+                                    <tr class="bg-slate-950 text-slate-400 uppercase">
+                                        <th class="p-2.5">Target Muscle Group</th>
+                                        <th class="p-2.5 text-right">Duration / Passes</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="foam-rolling-body" class="divide-y divide-slate-800">
+                                    <!-- Dynamic Foam Rolling drills -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Warm-Up Exercises Sheet -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                        <h3 class="font-bold text-base text-white flex items-center gap-2">
+                            <i class="fa-solid fa-person-running text-amber-400"></i> Dynamic Warm-Up (Barefoot)
+                        </h3>
+                        <span class="text-xs font-mono bg-amber-950 text-amber-400 border border-amber-800 px-2.5 py-0.5 rounded-full">Active Mobility</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">Perform 1 set of each exercise sequentially before lifting.</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse excel-table">
+                            <thead>
+                                <tr class="bg-slate-950 text-slate-400 uppercase">
+                                    <th class="p-2.5">Mobility Drill</th>
+                                    <th class="p-2.5 text-right">Target Prescription</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dynamic-warmup-body" class="divide-y divide-slate-800">
+                                <!-- Dynamic Warmup Exercises -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARDIO OPTIONS SHEET TAB CONTENT -->
+        <div id="content-cardio" class="tab-content hidden space-y-5">
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cardio Option Protocol:</span>
+                    <select id="cardio-option-select" onchange="renderCardioSheet()" class="bg-slate-950 text-emerald-400 font-bold border border-slate-800 rounded-xl px-3 py-1.5 text-xs outline-none">
+                        <option value="1">Option 1: Agility, Sprints & Field Work</option>
+                        <option value="2">Option 2: Machine Intervals & Conditioning Circuit</option>
+                        <option value="3">Option 3: Hybrid Cardio Mix</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-5">
+                <!-- Tuesday Cardio Routine -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                        <h3 class="font-bold text-base text-white flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-day text-rose-400"></i> Tuesday Cardio Schedule
+                        </h3>
+                        <span class="text-xs font-mono bg-rose-950 text-rose-400 border border-rose-800 px-2.5 py-0.5 rounded-full">Day 2 Cardio</span>
+                    </div>
+                    <div id="cardio-tuesday-content" class="text-xs text-slate-300 space-y-3 leading-relaxed">
+                        <!-- JS Dynamic insertion -->
+                    </div>
+                </div>
+
+                <!-- Friday Cardio Routine -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                        <h3 class="font-bold text-base text-white flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-day text-rose-400"></i> Friday Cardio Schedule
+                        </h3>
+                        <span class="text-xs font-mono bg-rose-950 text-rose-400 border border-rose-800 px-2.5 py-0.5 rounded-full">Day 5 Cardio</span>
+                    </div>
+                    <div id="cardio-friday-content" class="text-xs text-slate-300 space-y-3 leading-relaxed">
+                        <!-- JS Dynamic insertion -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SAVED LOGS HISTORY TAB CONTENT -->
+        <div id="content-log" class="tab-content hidden space-y-4">
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
+                    <div>
+                        <h3 class="font-bold text-base text-white flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-sky-400"></i> Workout History Spreadsheet Log
+                        </h3>
+                        <p class="text-xs text-slate-400">All saved training sessions stored locally in browser memory</p>
+                    </div>
+                    <button onclick="clearHistoryLogs()" class="text-xs text-rose-400 hover:text-rose-300 bg-rose-950/40 border border-rose-800/60 px-3 py-1.5 rounded-xl transition-all">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Clear Saved History
+                    </button>
+                </div>
+
+                <div id="saved-logs-container" class="space-y-4">
+                    <!-- Dynamic Log Table Items -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer Worksheet Tab bar style -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-3 text-center text-xs text-slate-500 font-mono">
+        Show & Go Workout Program &bull; Excel/Sheets Interactive Workbook Engine
+    </footer>
+
+    <!-- App Logic Script -->
+    <script>
+        // Complete 4-Phase Program Data Structure
+        const programData = {
+            1: {
+                foamRolling: [
+                    { name: 'IT Band / Tensor Fasciae Latae', reps: '30-60s per side' },
+                    { name: 'Adductors (Inner Thighs)', reps: '30-60s per side' },
+                    { name: 'Quadriceps / Rectus Femoris', reps: '30-60s per side' },
+                    { name: 'Hamstrings & Glutes', reps: '30-60s per side' },
+                    { name: 'Thoracic Spine Extensions', reps: '10-12 reps' },
+                    { name: 'Lats / Upper Back', reps: '30-60s per side' }
+                ],
+                warmup: [
+                    { name: '1-leg Supine Bridge', reps: '1x8/side' },
+                    { name: 'Split-Stance Kneeling Adductor Mobs', reps: '1x8/side' },
+                    { name: 'Wall Hip Flexor Mobs', reps: '1x8/side' },
+                    { name: 'Wall Ankle Mobs', reps: '1x8/side' },
+                    { name: 'Squat to Stand', reps: '1x6' },
+                    { name: 'Walking Spiderman w/Overhead Reach', reps: '1x5/side' },
+                    { name: 'Cross-Behind Overhead Reverse Lunge', reps: '1x5/side' },
+                    { name: 'No Money Drill', reps: '1x8' }
+                ],
+                lifting: {
+                    Monday: [
+                        { id: 'A1', name: 'Front Squats', weeks: { 1: { sets: 5, reps: '3' }, 2: { sets: 4, reps: '3' }, 3: { sets: 5, reps: '3' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'A2', name: 'Scapular Wall Slides', weeks: { 1: { sets: 4, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 4, reps: '8' }, 4: { sets: 3, reps: '8' } } },
+                        { id: 'B', name: 'Speed Deadlifts (barefoot)', weeks: { 1: { sets: 6, reps: '2', note: '50% 1RM, 60s rest' }, 2: { sets: 6, reps: '2', note: '55% 1RM, 60s rest' }, 3: { sets: 6, reps: '2', note: '60% 1RM, 60s rest' }, 4: { sets: 4, reps: '2', note: '65% 1RM, 60s rest' } } },
+                        { id: 'C1', name: 'DB Reverse Lunges from Deficit', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 3, reps: '8/side' } } },
+                        { id: 'C2', name: 'Pallof Press Iso Holds', weeks: { 1: { sets: 3, reps: '3', note: '10s iso hold' }, 2: { sets: 3, reps: '3', note: '10s iso hold' }, 3: { sets: 3, reps: '3', note: '10s iso hold' }, 4: { sets: 3, reps: '3', note: '10s iso hold' } } },
+                        { id: 'D1', name: 'Split-Stance Kneeling Adductor Stretch', weeks: { 1: { sets: 2, reps: '30s/side' }, 2: { sets: 2, reps: '30s/side' }, 3: { sets: 2, reps: '30s/side' }, 4: { sets: 2, reps: '30s/side' } } },
+                        { id: 'D2', name: '1-arm Doorway Pec Stretch', weeks: { 1: { sets: 2, reps: '30s/side' }, 2: { sets: 2, reps: '30s/side' }, 3: { sets: 2, reps: '30s/side' }, 4: { sets: 2, reps: '30s/side' } } }
+                    ],
+                    Wednesday: [
+                        { id: 'A1', name: 'Alternating DB Bench Press', weeks: { 1: { sets: 4, reps: '5/side' }, 2: { sets: 4, reps: '5/side' }, 3: { sets: 5, reps: '5/side' }, 4: { sets: 3, reps: '5/side' } } },
+                        { id: 'A2', name: 'Neutral Grip Pull-ups', weeks: { 1: { sets: 4, reps: '5' }, 2: { sets: 4, reps: '5' }, 3: { sets: 5, reps: '5' }, 4: { sets: 3, reps: '5' } } },
+                        { id: 'B1', name: 'Feet-Elevated Push-ups', weeks: { 1: { sets: 3, reps: '10', note: 'Wrap band around back' }, 2: { sets: 3, reps: '10', note: 'Wrap band around back' }, 3: { sets: 3, reps: '10', note: 'Wrap band around back' }, 4: { sets: 3, reps: '10', note: 'Wrap band around back' } } },
+                        { id: 'B2', name: 'Seated Cable Rows - Pronated Grip', weeks: { 1: { sets: 3, reps: '10' }, 2: { sets: 3, reps: '10' }, 3: { sets: 3, reps: '10' }, 4: { sets: 3, reps: '10' } } },
+                        { id: 'C1', name: 'Dumbbell Hammer Curls', weeks: { 1: { sets: 3, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 3, reps: '8' }, 4: { sets: 3, reps: '8' } } },
+                        { id: 'C2', name: 'Crossover Reverse Fly', weeks: { 1: { sets: 3, reps: '10' }, 2: { sets: 3, reps: '10' }, 3: { sets: 3, reps: '10' }, 4: { sets: 3, reps: '10' } } },
+                        { id: 'D1', name: 'Ab Wheel (or Bar) Rollout', weeks: { 1: { sets: 3, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 3, reps: '8' }, 4: { sets: 3, reps: '8' } } },
+                        { id: 'D2', name: 'Walking Spiderman w/Overhead Reach', weeks: { 1: { sets: 3, reps: '5/side' }, 2: { sets: 3, reps: '5/side' }, 3: { sets: 3, reps: '5/side' }, 4: { sets: 3, reps: '5/side' } } }
+                    ],
+                    Thursday: [
+                        { id: 'A1', name: 'Trap (Hex) Bar Deadlifts (barefoot)', weeks: { 1: { sets: 4, reps: '5' }, 2: { sets: 4, reps: '5' }, 3: { sets: 5, reps: '5' }, 4: { sets: 4, reps: '5' } } },
+                        { id: 'A2', name: 'Wall Ankle Mobs (barefoot)', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 4, reps: '8/side' }, 4: { sets: 3, reps: '8/side' } } },
+                        { id: 'B1', name: 'Walking DB Lunges', weeks: { 1: { sets: 4, reps: '6/side' }, 2: { sets: 3, reps: '6/side' }, 3: { sets: 4, reps: '6/side' }, 4: { sets: 3, reps: '6/side' } } },
+                        { id: 'B2', name: 'Quadruped Chin Tucks', weeks: { 1: { sets: 3, reps: '5' }, 2: { sets: 3, reps: '5' }, 3: { sets: 3, reps: '5' }, 4: { sets: 3, reps: '5' } } },
+                        { id: 'C1', name: 'Side Bridge Wall Slides', weeks: { 1: { sets: 3, reps: '10/side' }, 2: { sets: 3, reps: '10/side' }, 3: { sets: 3, reps: '10/side' }, 4: { sets: 3, reps: '10/side' } } },
+                        { id: 'C2', name: 'Natural Glute-Ham Raises', weeks: { 1: { sets: 3, reps: '6' }, 2: { sets: 3, reps: '6' }, 3: { sets: 3, reps: '6' }, 4: { sets: 3, reps: '6' } } },
+                        { id: 'D1', name: 'Stability Ball Adductor Stretch on Wall', weeks: { 1: { sets: 2, reps: '30s' }, 2: { sets: 2, reps: '30s' }, 3: { sets: 2, reps: '30s' }, 4: { sets: 2, reps: '30s' } } },
+                        { id: 'D2', name: 'Kneeling Heel-to-Butt Stretch', weeks: { 1: { sets: 2, reps: '30s/side' }, 2: { sets: 2, reps: '30s/side' }, 3: { sets: 2, reps: '30s/side' }, 4: { sets: 2, reps: '30s/side' } } }
+                    ],
+                    Saturday: [
+                        { id: 'A1', name: 'Close-Grip Bench Press', weeks: { 1: { sets: 5, reps: '3' }, 2: { sets: 4, reps: '3' }, 3: { sets: 6, reps: '3' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'A2', name: 'Pull-ups', weeks: { 1: { sets: 5, reps: '3' }, 2: { sets: 4, reps: '3' }, 3: { sets: 6, reps: '3' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'B1', name: 'Low Incline DB Press', weeks: { 1: { sets: 3, reps: '6' }, 2: { sets: 3, reps: '6' }, 3: { sets: 3, reps: '6' }, 4: { sets: 3, reps: '6' } } },
+                        { id: 'B2', name: 'Chest-Supported Row - Neutral Grip', weeks: { 1: { sets: 3, reps: '10' }, 2: { sets: 3, reps: '10' }, 3: { sets: 3, reps: '10' }, 4: { sets: 3, reps: '10' } } },
+                        { id: 'C1', name: 'Prone Bridge Arm March', weeks: { 1: { sets: 3, reps: '10/side' }, 2: { sets: 3, reps: '10/side' }, 3: { sets: 3, reps: '10/side' }, 4: { sets: 3, reps: '10/side' } } },
+                        { id: 'C2', name: 'Side-Lying External Rotation', weeks: { 1: { sets: 3, reps: '10/side' }, 2: { sets: 3, reps: '10/side' }, 3: { sets: 3, reps: '10/side' }, 4: { sets: 3, reps: '10/side' } } },
+                        { id: 'D1', name: 'Elbow/Wrist Flexors Stretch', weeks: { 1: { sets: 2, reps: '30s/side' }, 2: { sets: 2, reps: '30s/side' }, 3: { sets: 2, reps: '30s/side' }, 4: { sets: 2, reps: '30s/side' } } },
+                        { id: 'D2', name: '3-way Band Hamstrings Stretch', weeks: { 1: { sets: 2, reps: '15s/angle' }, 2: { sets: 2, reps: '15s/angle' }, 3: { sets: 2, reps: '15s/angle' }, 4: { sets: 2, reps: '15s/angle' } } }
+                    ]
+                },
+                cardio: {
+                    1: {
+                        tue: "<strong>Agility & Sprints:</strong><br>&bull; Heidens: 4x5/side (W1-W4)<br>&bull; 20-yd Falling Starts: W1: x6 (80%), W2: x6 (90%), W3: x6 (100%), W4: x4 (100%)",
+                        fri: "<strong>Sprint Work:</strong><br>&bull; 15-yd Side Shuffle to 15-yd Sprint: W1-W3: x4/side, W4: x3/side<br>&bull; 50-yd Build-ups: W1: x8 (80%), W2: x8 (90%), W3: x8 (90%), W4: x5 (100%)"
+                    },
+                    2: {
+                        tue: "<strong>Machine Intervals:</strong> 15 mins Bike/Rower (20s work : 40s rest) OR 10x100m Sprints at 90% effort",
+                        fri: "<strong>Conditioning Circuit (3 Sets):</strong><br>&bull; BW Jump Squats x 12<br>&bull; In-Place Heidens x 6/side<br>&bull; T-Push-ups x 4/side<br>&bull; Front Squat to Push Press x 10"
+                    },
+                    3: {
+                        tue: "<strong>Intervals:</strong> 15 mins (20s on : 40s off) OR 10x100m Sprints",
+                        fri: "<strong>Field Work:</strong> 15-yd Shuffle to Sprint + 50-yd Build-ups"
+                    }
+                }
+            },
+            2: {
+                foamRolling: [
+                    { name: 'Gastrocnemius & Soleus (Calves)', reps: '30-60s per side' },
+                    { name: 'Adductors & Groin', reps: '30-60s per side' },
+                    { name: 'Gluteus Medius & Piriformis', reps: '30-60s per side' },
+                    { name: 'T-Spine & Rhomboids', reps: '10-12 reps' }
+                ],
+                warmup: [
+                    { name: 'Rocking Ankle Mobilizations', reps: '1x8/side' },
+                    { name: 'Half-Kneeling Adductor Dips', reps: '1x8/side' },
+                    { name: 'Yoga Push-ups', reps: '1x6' },
+                    { name: 'Glute Wall March Iso Hold', reps: '3x5s/side' },
+                    { name: 'Scapular Wall Slides', reps: '1x10' },
+                    { name: 'Bent-Over T-Spine Rotation', reps: '1x5/side' },
+                    { name: 'Overhead Lunge Walk w/Hip Lift', reps: '1x5/side' },
+                    { name: 'Alternating Lateral Lunge Walk', reps: '1x5/side' }
+                ],
+                lifting: {
+                    Monday: [
+                        { id: 'A1', name: 'Sumo Deadlifts (barefoot)', weeks: { 1: { sets: 4, reps: '2x2, 2x4' }, 2: { sets: 4, reps: '2x2, 2x4' }, 3: { sets: 5, reps: '2x1, 3x3' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'A2', name: 'Knee-Break Ankle Mobilizations', weeks: { 1: { sets: 3, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 4, reps: '8' }, 4: { sets: 3, reps: '8' } } },
+                        { id: 'B1', name: 'Barbell Reverse Lunge - Front Squat Grip', weeks: { 1: { sets: 5, reps: '6/side' }, 2: { sets: 4, reps: '6/side' }, 3: { sets: 5, reps: '6/side' }, 4: { sets: 3, reps: '6/side' } } },
+                        { id: 'B2', name: 'Yoga Plex', weeks: { 1: { sets: 4, reps: '4/side' }, 2: { sets: 3, reps: '4/side' }, 3: { sets: 4, reps: '4/side' }, 4: { sets: 3, reps: '4/side' } } },
+                        { id: 'C1', name: '1-leg DB RDLs (barefoot)', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 3, reps: '8/side' } } },
+                        { id: 'C2', name: 'Split-Stance Cable Lift', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 3, reps: '8/side' } } },
+                        { id: 'D1', name: 'Wall Lat Stretch', weeks: { 1: { sets: 2, reps: '20s/side' }, 2: { sets: 2, reps: '20s/side' }, 3: { sets: 2, reps: '20s/side' }, 4: { sets: 2, reps: '20s/side' } } },
+                        { id: 'D2', name: '1-arm Doorway Pec Stretch', weeks: { 1: { sets: 2, reps: '20s/side' }, 2: { sets: 2, reps: '20s/side' }, 3: { sets: 2, reps: '20s/side' }, 4: { sets: 2, reps: '20s/side' } } }
+                    ],
+                    Wednesday: [
+                        { id: 'A1', name: 'Low Incline Barbell Press', weeks: { 1: { sets: 4, reps: '2x2, 2x4' }, 2: { sets: 4, reps: '2x2, 2x4' }, 3: { sets: 5, reps: '2x1, 3x3' }, 4: { sets: 3, reps: '12/side' } } },
+                        { id: 'A2', name: 'Wall Hip Flexor Mobs', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 4, reps: '8/side' }, 4: { sets: 0, reps: 'Omit' } } },
+                        { id: 'B1', name: 'Neutral Grip DB Bench Press', weeks: { 1: { sets: 3, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 3, reps: '8' }, 4: { sets: 0, reps: 'Omit' } } },
+                        { id: 'B2', name: 'Towel Pull-ups', weeks: { 1: { sets: 3, reps: '6' }, 2: { sets: 3, reps: '6' }, 3: { sets: 3, reps: '6' }, 4: { sets: 3, reps: '6' } } },
+                        { id: 'C1', name: 'Standing 1-arm Cable Rows', weeks: { 1: { sets: 4, reps: '10/side' }, 2: { sets: 4, reps: '10/side' }, 3: { sets: 4, reps: '10/side' }, 4: { sets: 3, reps: '10/side' } } },
+                        { id: 'C2', name: '1-leg Feet-Elevated Push-ups', weeks: { 1: { sets: 3, reps: '5/side' }, 2: { sets: 3, reps: '5/side' }, 3: { sets: 3, reps: '5/side' }, 4: { sets: 3, reps: '5/side' } } },
+                        { id: 'D1', name: 'Supine No Money w/Band', weeks: { 1: { sets: 2, reps: '3 (10s iso)' }, 2: { sets: 2, reps: '3 (10s iso)' }, 3: { sets: 2, reps: '4 (10s iso)' }, 4: { sets: 2, reps: '4 (10s iso)' } } },
+                        { id: 'D2', name: 'Quadruped Chin Tucks', weeks: { 1: { sets: 2, reps: '5' }, 2: { sets: 2, reps: '5' }, 3: { sets: 2, reps: '5' }, 4: { sets: 2, reps: '5' } } }
+                    ],
+                    Thursday: [
+                        { id: 'A1', name: 'Front Box Squats', weeks: { 1: { sets: 6, reps: '2', note: '55% 1RM' }, 2: { sets: 7, reps: '2', note: '60% 1RM' }, 3: { sets: 8, reps: '2', note: '65% 1RM' }, 4: { sets: 3, reps: '5' } } },
+                        { id: 'A2', name: 'Prone Row to Ext Rot', weeks: { 1: { sets: 3, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 3, reps: '8' }, 4: { sets: 1, reps: '8' } } },
+                        { id: 'B1', name: 'Snatch Grip Rack Pulls', weeks: { 1: { sets: 3, reps: '6' }, 2: { sets: 3, reps: '6' }, 3: { sets: 3, reps: '6' }, 4: { sets: 3, reps: '6' } } },
+                        { id: 'B2', name: 'Side-Lying Extension-Rotation', weeks: { 1: { sets: 2, reps: '8/side' }, 2: { sets: 2, reps: '8/side' }, 3: { sets: 2, reps: '8/side' }, 4: { sets: 2, reps: '8/side' } } },
+                        { id: 'C1', name: 'DB Forward Lunges', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 3, reps: '8/side' } } },
+                        { id: 'C2', name: 'Landmines', weeks: { 1: { sets: 3, reps: '5/side' }, 2: { sets: 3, reps: '5/side' }, 3: { sets: 3, reps: '5/side' }, 4: { sets: 3, reps: '5/side' } } },
+                        { id: 'D1', name: 'Static Calf Stretch', weeks: { 1: { sets: 2, reps: '30s/side' }, 2: { sets: 2, reps: '30s/side' }, 3: { sets: 2, reps: '30s/side' }, 4: { sets: 2, reps: '30s/side' } } },
+                        { id: 'D2', name: 'Kneeling Heel to Butt Stretch', weeks: { 1: { sets: 2, reps: '30s/side' }, 2: { sets: 2, reps: '30s/side' }, 3: { sets: 2, reps: '30s/side' }, 4: { sets: 2, reps: '30s/side' } } }
+                    ],
+                    Saturday: [
+                        { id: 'A', name: 'Speed Bench', weeks: { 1: { sets: 6, reps: '3', note: '50% 1RM' }, 2: { sets: 6, reps: '3', note: '55% + 1RM test' }, 3: { sets: 6, reps: '3', note: '60% 1RM' }, 4: { sets: 5, reps: '3', note: '50% + 1RM test' } } },
+                        { id: 'B1', name: 'Chest-Supported Row - Pronated Grip', weeks: { 1: { sets: 4, reps: '6' }, 2: { sets: 4, reps: '6' }, 3: { sets: 4, reps: '6' }, 4: { sets: 3, reps: '6' } } },
+                        { id: 'B2', name: 'DB Push Press', weeks: { 1: { sets: 3, reps: '6' }, 2: { sets: 3, reps: '6' }, 3: { sets: 3, reps: '6' }, 4: { sets: 2, reps: '6' } } },
+                        { id: 'C1', name: 'T-Push-ups', weeks: { 1: { sets: 3, reps: '6/side' }, 2: { sets: 3, reps: '6/side' }, 3: { sets: 3, reps: '6/side' }, 4: { sets: 3, reps: '6/side' } } },
+                        { id: 'C2', name: 'Seated Cable Row - Neutral Grip', weeks: { 1: { sets: 3, reps: '10' }, 2: { sets: 3, reps: '10' }, 3: { sets: 3, reps: '10' }, 4: { sets: 3, reps: '10' } } },
+                        { id: 'D1', name: 'Ab Wheel Iso Holds', weeks: { 1: { sets: 3, reps: '10-15s' }, 2: { sets: 3, reps: '10-15s' }, 3: { sets: 3, reps: '10-15s' }, 4: { sets: 3, reps: '10-15s' } } },
+                        { id: 'D2', name: 'Cable External Rotation at 90 Deg', weeks: { 1: { sets: 2, reps: '10/side' }, 2: { sets: 2, reps: '10/side' }, 3: { sets: 2, reps: '10/side' }, 4: { sets: 2, reps: '10/side' } } }
+                    ]
+                },
+                cardio: {
+                    1: {
+                        tue: "<strong>Side-Starts & Build-ups:</strong> 10-yd Side-Starts x3/dir + 50-yd Build-ups (W1: 6x90%, W2: 6x100%, W3: 6x100%)",
+                        fri: "<strong>Lateral Heidens & Get-ups:</strong> Repeated Heidens 4x5/side + 20-yd Rollover Get-ups x5/side"
+                    },
+                    2: {
+                        tue: "<strong>Conditioning:</strong> 15m Rowing/Bike (30s:30s) OR 6x200m Sprints",
+                        fri: "<strong>Full-Body Circuit (3 Sets):</strong> Side Bridge Wall Slides, BW Split Squats, DB Swings, Suitcase DLs"
+                    },
+                    3: {
+                        tue: "<strong>Intervals:</strong> 15m (30s:30s) OR 6x200m Sprints",
+                        fri: "<strong>Field Drills:</strong> Heidens + Rollover Sprints"
+                    }
+                }
+            },
+            3: {
+                foamRolling: [
+                    { name: 'Thoracic Spine Extensions', reps: '12 reps' },
+                    { name: 'Glute Max & Medius', reps: '30-60s per side' },
+                    { name: 'Pecs & Latissimus Dorsi', reps: '30-60s per side' }
+                ],
+                warmup: [
+                    { name: 'Birddogs', reps: '6/side' },
+                    { name: '3-point Extension-Rotation', reps: '8/side' },
+                    { name: 'Supine Leg Whips', reps: '6/side' },
+                    { name: 'Wall Hip Flexor Mobilizations', reps: '8/side' },
+                    { name: 'Split-Stance Broomstick Pec Mobs', reps: '6/side' },
+                    { name: 'Knee-Break Ankle Mobilizations', reps: '1x8' },
+                    { name: 'Reverse 1-leg SLDL Walk', reps: '5/side' },
+                    { name: 'Walking Spiderman w/Hip Lift', reps: '5/side' }
+                ],
+                lifting: {
+                    Monday: [
+                        { id: 'A1', name: 'Barbell Overhead Squats', weeks: { 1: { sets: 3, reps: '6', note: 'Tempo 30X0' }, 2: { sets: 3, reps: '6', note: 'Tempo 30X0' }, 3: { sets: 3, reps: '6', note: 'Tempo 30X0' }, 4: { sets: 3, reps: '6', note: 'Tempo 30X0' } } },
+                        { id: 'A2', name: 'Quadruped Chin Tucks', weeks: { 1: { sets: 3, reps: '5' }, 2: { sets: 3, reps: '5' }, 3: { sets: 3, reps: '5' }, 4: { sets: 3, reps: '5' } } },
+                        { id: 'B1', name: 'Barbell Forward Lunges', weeks: { 1: { sets: 5, reps: '6/side' }, 2: { sets: 4, reps: '6/side' }, 3: { sets: 5, reps: '6/side' }, 4: { sets: 3, reps: '6/side' } } },
+                        { id: 'B2', name: 'Reach, Roll, & Lift', weeks: { 1: { sets: 3, reps: '6/side' }, 2: { sets: 3, reps: '6/side' }, 3: { sets: 3, reps: '6/side' }, 4: { sets: 3, reps: '6/side' } } },
+                        { id: 'C1', name: '1-arm, 1-leg DB RDLs (barefoot)', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 2, reps: '8/side' } } },
+                        { id: 'C2', name: 'Cable Woodchops - Chest Height', weeks: { 1: { sets: 2, reps: '8/side' }, 2: { sets: 2, reps: '8/side' }, 3: { sets: 2, reps: '8/side' }, 4: { sets: 2, reps: '8/side' } } },
+                        { id: 'D1', name: 'Corner Pec Minor Stretch', weeks: { 1: { sets: 2, reps: '30s' }, 2: { sets: 2, reps: '30s' }, 3: { sets: 2, reps: '30s' }, 4: { sets: 2, reps: '30s' } } },
+                        { id: 'D2', name: 'Seated 90/90 Stretch', weeks: { 1: { sets: 2, reps: '30s/side' }, 2: { sets: 2, reps: '30s/side' }, 3: { sets: 2, reps: '30s/side' }, 4: { sets: 2, reps: '30s/side' } } }
+                    ],
+                    Wednesday: [
+                        { id: 'A1', name: 'Push Press (W1,2) / Floor Press (W3,4)', weeks: { 1: { sets: 6, reps: '3' }, 2: { sets: 8, reps: '3' }, 3: { sets: 6, reps: '3' }, 4: { sets: 4, reps: '3' } } },
+                        { id: 'A2', name: 'Thick Grip Neutral Pull-ups', weeks: { 1: { sets: 6, reps: '3' }, 2: { sets: 8, reps: '3' }, 3: { sets: 6, reps: '3' }, 4: { sets: 4, reps: '3' } } },
+                        { id: 'B1', name: '1-arm Cable Rotational Row', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 3, reps: '8/side' } } },
+                        { id: 'B2', name: '1-arm DB Bench Press', weeks: { 1: { sets: 2, reps: '8/side' }, 2: { sets: 2, reps: '8/side' }, 3: { sets: 2, reps: '8/side' }, 4: { sets: 2, reps: '8/side' } } },
+                        { id: 'C1', name: 'Stir the Pot', weeks: { 1: { sets: 2, reps: '6/dir' }, 2: { sets: 2, reps: '6/dir' }, 3: { sets: 2, reps: '6/dir' }, 4: { sets: 2, reps: '6/dir' } } },
+                        { id: 'C2', name: 'Cable Ext Rot at 90 Deg', weeks: { 1: { sets: 2, reps: '10/side' }, 2: { sets: 2, reps: '10/side' }, 3: { sets: 2, reps: '10/side' }, 4: { sets: 2, reps: '10/side' } } }
+                    ],
+                    Thursday: [
+                        { id: 'A1', name: 'Trap Bar Deadlifts (barefoot)', weeks: { 1: { sets: 6, reps: '3' }, 2: { sets: 8, reps: '3' }, 3: { sets: 6, reps: '3' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'A2', name: 'Side-Lying Int-Ext Rotation', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 4, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 2, reps: '8/side' } } },
+                        { id: 'B1', name: 'DB Bulgarian Split Squats from Deficit', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 2, reps: '8/side' } } },
+                        { id: 'B2', name: 'Doorway Slides', weeks: { 1: { sets: 2, reps: '10' }, 2: { sets: 2, reps: '10' }, 3: { sets: 2, reps: '10' }, 4: { sets: 2, reps: '10' } } },
+                        { id: 'C1', name: 'Tall Kneeling Cable Lift', weeks: { 1: { sets: 2, reps: '10/side' }, 2: { sets: 2, reps: '10/side' }, 3: { sets: 2, reps: '10/side' }, 4: { sets: 2, reps: '10/side' } } },
+                        { id: 'C2', name: 'Natural Glute-Ham Raise', weeks: { 1: { sets: 1, reps: '6' }, 2: { sets: 1, reps: '6' }, 3: { sets: 1, reps: '6' }, 4: { sets: 1, reps: '6' } } }
+                    ],
+                    Saturday: [
+                        { id: 'A1', name: 'Standing Overhead Barbell Press', weeks: { 1: { sets: 5, reps: '5' }, 2: { sets: 5, reps: '5' }, 3: { sets: 5, reps: '5' }, 4: { sets: 3, reps: '5' } } },
+                        { id: 'A2', name: 'Prone Trap-3 Raises', weeks: { 1: { sets: 3, reps: '10' }, 2: { sets: 3, reps: '10' }, 3: { sets: 3, reps: '10' }, 4: { sets: 3, reps: '10' } } },
+                        { id: 'B1', name: 'Dumbbell Incline Bench Press', weeks: { 1: { sets: 3, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 3, reps: '8' }, 4: { sets: 3, reps: '8' } } },
+                        { id: 'B2', name: 'Chest-Supported Row - Wide Grip', weeks: { 1: { sets: 3, reps: '10' }, 2: { sets: 3, reps: '10' }, 3: { sets: 3, reps: '10' }, 4: { sets: 3, reps: '10' } } }
+                    ]
+                },
+                cardio: {
+                    1: { tue: "<strong>Curved Sprint Drills:</strong> 8x30m curved sprints", fri: "<strong>Interval Shuttle:</strong> 10x20m shuttles" },
+                    2: { tue: "<strong>Rowing Intervals:</strong> 20m (40s work : 20s rest)", fri: "<strong>Circuit:</strong> 4 Rounds bodyweight & kettlebell work" },
+                    3: { tue: "<strong>Mix Cardio:</strong> Bike / Sprints", fri: "<strong>Field Drills:</strong> Shuttles and Agility ladder" }
+                }
+            },
+            4: {
+                foamRolling: [
+                    { name: 'Full-Body Soft Tissue Prep', reps: '45s per area' }
+                ],
+                warmup: [
+                    { name: 'Supine Glute Bridges', reps: '1x10' },
+                    { name: 'Quadruped Thoracic Rotations', reps: '1x8/side' },
+                    { name: 'Lateral Lunge Walk', reps: '1x6/side' },
+                    { name: 'Walking Spiderman', reps: '1x5/side' }
+                ],
+                lifting: {
+                    Monday: [
+                        { id: 'A1', name: 'Back Squat or Front Squat (Peaking)', weeks: { 1: { sets: 5, reps: '2' }, 2: { sets: 4, reps: '2' }, 3: { sets: 5, reps: '1' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'A2', name: 'Thoracic Extension Mobilization', weeks: { 1: { sets: 3, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 3, reps: '8' }, 4: { sets: 3, reps: '8' } } },
+                        { id: 'B1', name: 'Single-Leg Step-Ups', weeks: { 1: { sets: 3, reps: '6/side' }, 2: { sets: 3, reps: '6/side' }, 3: { sets: 3, reps: '6/side' }, 4: { sets: 2, reps: '6/side' } } },
+                        { id: 'B2', name: 'Pallof Press Iso Hold', weeks: { 1: { sets: 3, reps: '3' }, 2: { sets: 3, reps: '3' }, 3: { sets: 3, reps: '3' }, 4: { sets: 2, reps: '3' } } }
+                    ],
+                    Wednesday: [
+                        { id: 'A1', name: 'Barbell Bench Press (Peaking)', weeks: { 1: { sets: 5, reps: '2' }, 2: { sets: 4, reps: '2' }, 3: { sets: 5, reps: '1' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'A2', name: 'Weighted Pull-ups', weeks: { 1: { sets: 4, reps: '3' }, 2: { sets: 4, reps: '3' }, 3: { sets: 4, reps: '2' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'B1', name: 'Incline DB Press', weeks: { 1: { sets: 3, reps: '6' }, 2: { sets: 3, reps: '6' }, 3: { sets: 3, reps: '6' }, 4: { sets: 2, reps: '6' } } },
+                        { id: 'B2', name: '1-arm DB Row', weeks: { 1: { sets: 3, reps: '8/side' }, 2: { sets: 3, reps: '8/side' }, 3: { sets: 3, reps: '8/side' }, 4: { sets: 2, reps: '8/side' } } }
+                    ],
+                    Thursday: [
+                        { id: 'A1', name: 'Conventional or Sumo Deadlift (Peaking)', weeks: { 1: { sets: 5, reps: '2' }, 2: { sets: 4, reps: '2' }, 3: { sets: 5, reps: '1' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'A2', name: 'Scapular Wall Slides', weeks: { 1: { sets: 3, reps: '8' }, 2: { sets: 3, reps: '8' }, 3: { sets: 3, reps: '8' }, 4: { sets: 2, reps: '8' } } },
+                        { id: 'B1', name: 'Single-Leg Romanian Deadlift', weeks: { 1: { sets: 3, reps: '6/side' }, 2: { sets: 3, reps: '6/side' }, 3: { sets: 3, reps: '6/side' }, 4: { sets: 2, reps: '6/side' } } }
+                    ],
+                    Saturday: [
+                        { id: 'A1', name: 'Speed Overhead Press', weeks: { 1: { sets: 5, reps: '3' }, 2: { sets: 5, reps: '3' }, 3: { sets: 4, reps: '3' }, 4: { sets: 3, reps: '3' } } },
+                        { id: 'A2', name: 'Chin-ups', weeks: { 1: { sets: 4, reps: '5' }, 2: { sets: 4, reps: '5' }, 3: { sets: 3, reps: '5' }, 4: { sets: 3, reps: '5' } } }
+                    ]
+                },
+                cardio: {
+                    1: { tue: "<strong>Light Speed Drills:</strong> 4x20m falling starts", fri: "<strong>Recovery Cardio:</strong> 20m light walk/cycle" },
+                    2: { tue: "<strong>Low-Intensity Aerobic:</strong> 20m steady state", fri: "<strong>Mobility Flow:</strong> 20m light dynamic movements" },
+                    3: { tue: "<strong>Active Recovery:</strong> 20m bike/walk", fri: "<strong>Flexibility & Soft Tissue:</strong> 20m foam rolling" }
+                }
+            }
+        };
+
+        // App Active State Variables
+        let currentPhase = 1;
+        let currentStrengthDay = 'Monday';
+        let currentTab = 'dashboard';
+        let loggedSessions = JSON.parse(localStorage.getItem('cressey_workout_logs') || '[]');
+        let chartInstance = null;
+
+        // Initialize App on DOM Ready
+        window.addEventListener('DOMContentLoaded', () => {
+            setPhase(1);
+            initChart();
+            renderSavedLogs();
+            updateDashboardMetrics();
+        });
+
+        // Tab Navigation Switcher
+        function switchTab(tabId) {
+            currentTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-excel-accent', 'text-white', 'shadow');
+                el.classList.add('text-slate-400', 'hover:text-slate-200');
+            });
+
+            const targetTabBtn = document.getElementById(`tab-${tabId}`);
+            if (targetTabBtn) {
+                targetTabBtn.classList.add('bg-excel-accent', 'text-white', 'shadow');
+                targetTabBtn.classList.remove('text-slate-400', 'hover:text-slate-200');
+            }
+
+            const targetContent = document.getElementById(`content-${tabId}`);
+            if (targetContent) {
+                targetContent.classList.remove('hidden');
+            }
+
+            if (tabId === 'dashboard') {
+                updateDashboardMetrics();
+            }
+        }
+
+        // Global Phase Setter
+        function setPhase(phaseNum) {
+            currentPhase = phaseNum;
+            document.querySelectorAll('#phase-selector button').forEach(btn => {
+                btn.classList.remove('bg-excel-accent', 'text-white', 'shadow');
+                btn.classList.add('text-slate-400', 'hover:text-slate-200');
+            });
+            const btn = document.getElementById(`phase-btn-${phaseNum}`);
+            if (btn) {
+                btn.classList.add('bg-excel-accent', 'text-white', 'shadow');
+                btn.classList.remove('text-slate-400', 'hover:text-slate-200');
+            }
+
+            // Update Phase Labels & Rerender Sheets
+            document.getElementById('dash-phase-label').innerText = `Phase ${phaseNum}`;
+            renderStrengthGrid();
+            renderWarmupSheet();
+            renderCardioSheet();
+            updateDashboardMetrics();
+        }
+
+        // Strength Sheet Day Switcher
+        function switchStrengthDay(dayName) {
+            currentStrengthDay = dayName;
+            document.querySelectorAll('#day-buttons button').forEach(btn => {
+                btn.classList.remove('bg-emerald-600', 'text-white', 'shadow');
+                btn.classList.add('bg-slate-950', 'text-slate-400', 'hover:text-slate-200');
+            });
+            const dayBtn = document.getElementById(`day-btn-${dayName}`);
+            if (dayBtn) {
+                dayBtn.classList.add('bg-emerald-600', 'text-white', 'shadow');
+                dayBtn.classList.remove('bg-slate-950', 'text-slate-400', 'hover:text-slate-200');
+            }
+            renderStrengthGrid();
+        }
+
+        function selectStrengthDay(dayName) {
+            switchStrengthDay(dayName);
+            switchTab('strength');
+        }
+
+        // Render Excel Strength Interactive Grid
+        function renderStrengthGrid() {
+            const weekNum = document.getElementById('week-select').value;
+            const exercises = programData[currentPhase].lifting[currentStrengthDay] || [];
+            const tbody = document.getElementById('strength-grid-body');
+            tbody.innerHTML = '';
+
+            exercises.forEach((ex, idx) => {
+                const weekData = ex.weeks[weekNum] || { sets: 3, reps: '8', note: '' };
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-800/50 transition-colors";
+
+                row.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-400 bg-slate-950/40">${ex.id}</td>
+                    <td class="p-2.5 font-semibold text-white font-sans flex flex-col justify-center">
+                        <span>${ex.name}</span>
+                        ${ex.note ? `<span class="text-[10px] text-amber-400/90 font-normal">${ex.note}</span>` : ''}
+                    </td>
+                    <td class="p-2.5 text-center text-slate-300">${weekData.sets}</td>
+                    <td class="p-2.5 text-center text-slate-300">${weekData.reps}</td>
+                    <td class="p-1 bg-slate-950/30">
+                        <input type="number" id="weight-${idx}" placeholder="0" oninput="calculateRowFormula(${idx})" onfocus="updateFormulaBar('Weight cell input for ${ex.name}')" class="excel-input text-center text-emerald-400 font-bold" />
+                    </td>
+                    <td class="p-1 bg-slate-950/30">
+                        <input type="number" id="reps-${idx}" placeholder="${weekData.reps.split('/')[0]}" oninput="calculateRowFormula(${idx})" onfocus="updateFormulaBar('Reps cell input for ${ex.name}')" class="excel-input text-center text-sky-400 font-bold" />
+                    </td>
+                    <td class="p-2.5 text-center font-bold text-purple-400 bg-slate-950/50" id="volume-${idx}">0 lbs</td>
+                    <td class="p-2.5 text-center font-bold text-amber-400 bg-slate-950/50" id="onerm-${idx}">0 lbs</td>
+                    <td class="p-2.5 text-slate-400 font-sans text-[11px]">${weekData.note || 'Rest 60-90s between sets'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            calculateTotalDailyVolume();
+        }
+
+        // Live Excel Formula Calculations
+        function calculateRowFormula(rowIdx) {
+            const weekNum = document.getElementById('week-select').value;
+            const exercises = programData[currentPhase].lifting[currentStrengthDay] || [];
+            const ex = exercises[rowIdx];
+            const weekData = ex.weeks[weekNum] || { sets: 3, reps: '8' };
+
+            const weightInput = parseFloat(document.getElementById(`weight-${rowIdx}`).value) || 0;
+            const repsInput = parseFloat(document.getElementById(`reps-${rowIdx}`).value) || 0;
+
+            const sets = weekData.sets || 1;
+
+            // Formulas: Volume = Sets * Reps * Weight; 1RM = Weight * (1 + Reps/30)
+            const totalVolume = sets * repsInput * weightInput;
+            const estimatedMax = repsInput > 0 ? Math.round(weightInput * (1 + (repsInput / 30))) : 0;
+
+            document.getElementById(`volume-${rowIdx}`).innerText = `${totalVolume.toLocaleString()} lbs`;
+            document.getElementById(`onerm-${rowIdx}`).innerText = `${estimatedMax.toLocaleString()} lbs`;
+
+            updateFormulaBar(`=SUMPRODUCT(Sets:${sets}, Reps:${repsInput}, Weight:${weightInput}) -> Volume: ${totalVolume}lbs | Est 1RM: ${estimatedMax}lbs`);
+            calculateTotalDailyVolume();
+        }
+
+        function calculateTotalDailyVolume() {
+            const exercises = programData[currentPhase].lifting[currentStrengthDay] || [];
+            let total = 0;
+            exercises.forEach((_, idx) => {
+                const volText = document.getElementById(`volume-${idx}`)?.innerText || '0';
+                const val = parseFloat(volText.replace(/[^0-9.]/g, '')) || 0;
+                total += val;
+            });
+            document.getElementById('daily-total-volume').innerText = `${total.toLocaleString()} lbs`;
+            return total;
+        }
+
+        function updateFormulaBar(text) {
+            document.getElementById('formula-bar').innerText = text;
+        }
+
+        // Render Warm-Up & Foam Rolling Sheet
+        function renderWarmupSheet() {
+            const foamBody = document.getElementById('foam-rolling-body');
+            const warmupBody = document.getElementById('dynamic-warmup-body');
+
+            const foamData = programData[currentPhase].foamRolling || [];
+            const warmupData = programData[currentPhase].warmup || [];
+
+            foamBody.innerHTML = foamData.map(item => `
+                <tr class="hover:bg-slate-800/50">
+                    <td class="p-2.5 font-medium text-slate-200">${item.name}</td>
+                    <td class="p-2.5 text-right font-mono text-sky-400 font-bold">${item.reps}</td>
+                </tr>
+            `).join('');
+
+            warmupBody.innerHTML = warmupData.map(item => `
+                <tr class="hover:bg-slate-800/50">
+                    <td class="p-2.5 font-medium text-slate-200">${item.name}</td>
+                    <td class="p-2.5 text-right font-mono text-amber-400 font-bold">${item.reps}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Render Cardio Sheet
+        function renderCardioSheet() {
+            const optionVal = document.getElementById('cardio-option-select').value;
+            const cardioData = programData[currentPhase].cardio[optionVal] || { tue: 'Rest', fri: 'Rest' };
+
+            document.getElementById('cardio-tuesday-content').innerHTML = cardioData.tue;
+            document.getElementById('cardio-friday-content').innerHTML = cardioData.fri;
+        }
+
+        // Save Current Session Log into History
+        function saveCurrentSession() {
+            const weekNum = document.getElementById('week-select').value;
+            const exercises = programData[currentPhase].lifting[currentStrengthDay] || [];
+            const sessionData = [];
+
+            exercises.forEach((ex, idx) => {
+                const weight = parseFloat(document.getElementById(`weight-${idx}`).value) || 0;
+                const reps = parseFloat(document.getElementById(`reps-${idx}`).value) || 0;
+                if (weight > 0 || reps > 0) {
+                    sessionData.push({
+                        exercise: ex.name,
+                        code: ex.id,
+                        weight,
+                        reps,
+                        volume: document.getElementById(`volume-${idx}`).innerText,
+                        max: document.getElementById(`onerm-${idx}`).innerText
+                    });
+                }
+            });
+
+            if (sessionData.length === 0) {
+                showToast("Please input weight/reps in at least one row before saving!", "amber");
+                return;
+            }
+
+            const logEntry = {
+                id: Date.now(),
+                date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                phase: currentPhase,
+                day: currentStrengthDay,
+                week: weekNum,
+                totalVolume: calculateTotalDailyVolume(),
+                exercises: sessionData
+            };
+
+            loggedSessions.unshift(logEntry);
+            localStorage.setItem('cressey_workout_logs', JSON.stringify(loggedSessions));
+
+            showToast("Workout session logged to Excel History Sheet!", "emerald");
+            renderSavedLogs();
+            updateDashboardMetrics();
+        }
+
+        // Render Saved Logs Sheet History
+        function renderSavedLogs() {
+            const container = document.getElementById('saved-logs-container');
+            if (loggedSessions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-500 text-xs">
+                        <i class="fa-solid fa-folder-open text-3xl mb-2 block text-slate-600"></i>
+                        No saved workout logs available in spreadsheet memory yet.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = loggedSessions.map(log => `
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex flex-wrap justify-between items-center text-xs border-b border-slate-800 pb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">Phase ${log.phase}</span>
+                            <span class="font-bold text-white">${log.day} (Week ${log.week})</span>
+                            <span class="text-slate-500 font-mono text-[11px]">&bull; ${log.date}</span>
+                        </div>
+                        <div class="font-mono text-purple-400 font-bold">
+                            Session Volume: ${log.totalVolume.toLocaleString()} lbs
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs excel-table font-mono">
+                            <thead>
+                                <tr class="bg-slate-900 text-slate-400 text-[10px] uppercase">
+                                    <th class="p-1.5 text-center">Code</th>
+                                    <th class="p-1.5">Exercise</th>
+                                    <th class="p-1.5 text-center">Weight</th>
+                                    <th class="p-1.5 text-center">Reps</th>
+                                    <th class="p-1.5 text-center">Est 1RM</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/50">
+                                ${log.exercises.map(ex => `
+                                    <tr>
+                                        <td class="p-1.5 text-center text-slate-400">${ex.code}</td>
+                                        <td class="p-1.5 text-slate-200 font-sans">${ex.exercise}</td>
+                                        <td class="p-1.5 text-center text-emerald-400 font-bold">${ex.weight} lbs</td>
+                                        <td class="p-1.5 text-center text-sky-400 font-bold">${ex.reps}</td>
+                                        <td class="p-1.5 text-center text-amber-400">${ex.max}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistoryLogs() {
+            loggedSessions = [];
+            localStorage.removeItem('cressey_workout_logs');
+            renderSavedLogs();
+            updateDashboardMetrics();
+            showToast("Logged history cleared successfully", "emerald");
+        }
+
+        // Dashboard Visual Metrics & Analytics
+        function updateDashboardMetrics() {
+            const exercisesCount = (programData[currentPhase].lifting['Monday']?.length || 0) +
+                                   (programData[currentPhase].lifting['Wednesday']?.length || 0) +
+                                   (programData[currentPhase].lifting['Thursday']?.length || 0) +
+                                   (programData[currentPhase].lifting['Saturday']?.length || 0);
+
+            document.getElementById('dash-total-exercises').innerText = exercisesCount;
+            document.getElementById('dash-logged-count').innerText = loggedSessions.length;
+
+            const totalVolSum = loggedSessions.reduce((acc, cur) => acc + (cur.totalVolume || 0), 0);
+            document.getElementById('dash-total-volume').innerHTML = `${totalVolSum.toLocaleString()} <span class="text-xs text-slate-400 font-normal">lbs</span>`;
+
+            updateChartData();
+        }
+
+        // Initialize Chart.js Analytics
+        function initChart() {
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Mon (Day 1)', 'Wed (Day 2)', 'Thu (Day 3)', 'Sat (Day 4)'],
+                    datasets: [{
+                        label: 'Estimated Day Volume (lbs)',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: '#107c41',
+                        borderRadius: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { family: 'sans-serif', size: 11 } } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#64748b' }, grid: { display: false } },
+                        y: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }
+                    }
+                }
+            });
+        }
+
+        function updateChartData() {
+            if (!chartInstance) return;
+            const days = ['Monday', 'Wednesday', 'Thursday', 'Saturday'];
+            const volumes = days.map(d => {
+                const dayLogs = loggedSessions.filter(s => s.day === d && s.phase === currentPhase);
+                return dayLogs.reduce((acc, cur) => acc + cur.totalVolume, 0);
+            });
+
+            chartInstance.data.datasets[0].data = volumes;
+            chartInstance.update();
+        }
+
+        // Export Modal Control
+        function openExportModal() {
+            const modal = document.getElementById('export-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('opacity-100'), 10);
+        }
+
+        function closeExportModal() {
+            const modal = document.getElementById('export-modal');
+            modal.classList.remove('opacity-100');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        // Helper to generate CSV string
+        function generateCSVData(type) {
+            let csv = "Phase,Day,Exercise Code,Exercise Name,Sets,Reps Prescription,Notes\n";
+            const phasesToExport = type === 'all' ? [1, 2, 3, 4] : [currentPhase];
+
+            phasesToExport.forEach(p => {
+                const days = programData[p].lifting;
+                Object.keys(days).forEach(d => {
+                    days[d].forEach(ex => {
+                        const note = (ex.weeks[1]?.note || '').replace(/"/g, '""');
+                        csv += `Phase ${p},${d},${ex.id},"${ex.name}",${ex.weeks[1]?.sets || 3},"${ex.weeks[1]?.reps || 8}","${note}"\n`;
+                    });
+                });
+            });
+            return csv;
+        }
+
+        // Export CSV Functionality with Blob & ObjectURL support for Mobile Webviews
+        function downloadCSV(type) {
+            const csvData = generateCSVData(type);
+            const fileName = `Show_And_Go_Workout_Program_${type}_Phase${currentPhase}.csv`;
+
+            try {
+                const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", fileName);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+                closeExportModal();
+                showToast("CSV file generated and download triggered!", "emerald");
+            } catch (err) {
+                console.error("Direct download error: ", err);
+                copyCSVToClipboard(type);
+            }
+        }
+
+        // Copy raw CSV to clipboard fallback for mobile browsers blocking file downloads
+        function copyCSVToClipboard(type = 'all') {
+            const csvData = generateCSVData(type);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(csvData).then(() => {
+                    closeExportModal();
+                    showToast("CSV data copied to clipboard! Paste into Excel/Notes.", "emerald");
+                }).catch(() => {
+                    fallbackCopyText(csvData);
+                });
+            } else {
+                fallbackCopyText(csvData);
+            }
+        }
+
+        function fallbackCopyText(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                closeExportModal();
+                showToast("CSV text copied to clipboard!", "emerald");
+            } catch (err) {
+                showToast("Failed to copy automatically. Try desktop browser.", "amber");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Toast Notification Helper
+        function showToast(msg, color = 'emerald') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
